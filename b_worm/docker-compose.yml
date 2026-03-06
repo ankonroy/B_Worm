@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    container_name: b_worm_app
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_URL=${DB_URL}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+    develop:
+      watch:
+        # When source code changes, rebuild the image
+        - action: rebuild
+          path: ./src
+        # When pom.xml changes, rebuild (dependencies updated)
+        - action: rebuild
+          path: pom.xml
+    restart: unless-stopped

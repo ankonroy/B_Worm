@@ -1,0 +1,128 @@
+### JAVA ###
+# Compiled files
+*.class
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+### MAVEN ###
+!**/src/main/**/target/
+!**/src/test/**/target/
+/mvnw
+/mvnw.cmd
+/mvnw.bat
+
+### ENVIRONMENT VARIABLES ###
+# NEVER COMMIT ENVIRONMENT FILES WITH REAL CREDENTIALS!
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+### SPRING BOOT ###
+/spring-boot/
+/spring-boot-*/
+application-*.properties
+application-*.yml
+!application.properties
+!application.yml
+!/src/main/resources/application.properties
+!/src/main/resources/application.yml
+
+### LOGS ###
+logs/
+*.log
+spring.log
+spring-boot-logger.log
+
+### IDE - VS CODE ###
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+### IDE - ECLIPSE ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IDE - INTELLIJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### IDE - NETBEANS ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### DATABASE ###
+*.db
+*.sqlite
+*.h2.db
+*h2*.log
+
+### OS GENERATED FILES ###
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Mac
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.swp
+.swo
+.directory
+
+### TEMP FILES ###
+*.tmp
+*.temp
+*.bak
+*.orig
+*.old
+*~
+
+### PROJECT SPECIFIC ###
+# Add your project-specific ignores here
+# Example: /uploads/
+# Example: /temp-data/
+
+### KEEP THESE FILES ###
+!.gitkeep
+!.gitattributes
