@@ -41,11 +41,22 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # No .env file needed - use environment variables directly
+      # Debug step to verify structure
+      - name: Debug file structure
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Files in root:"
+          ls -la
+          echo "Files in b_worm directory:"
+          ls -la b_worm/ || echo "b_worm directory not found"
+          echo "Looking for pom.xml:"
+          find . -name "pom.xml"
+
+      # Build and test with Maven in the b_worm subfolder
       - name: Build and test with Maven
         run: mvn clean verify
+        working-directory: ./b_worm
         env:
-          # Override database connection to use the service container
           DB_URL: jdbc:postgresql://localhost:5432/test_db
           DB_USERNAME: test_user
           DB_PASSWORD: test_password
@@ -53,14 +64,15 @@ jobs:
           JPA_DDL_AUTO: create-drop
           JPA_SHOW_SQL: true
 
+      # Upload test reports from the b_worm subfolder
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
           path: |
-            target/surefire-reports/
-            target/failsafe-reports/
+            b_worm/target/surefire-reports/
+            b_worm/target/failsafe-reports/
 
   docker:
     needs: test-and-build
@@ -84,8 +96,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Create .env file for Docker build with production credentials from GitHub Secrets
+      # Create .env file for Docker build in the b_worm subfolder
       - name: Create .env file for build
+        working-directory: ./b_worm
         run: |
           echo "DB_URL=${{ secrets.PROD_DB_URL }}" >> .env
           echo "DB_USERNAME=${{ secrets.PROD_DB_USERNAME }}" >> .env
@@ -93,6 +106,8 @@ jobs:
           echo "PORT=8080" >> .env
           echo "JPA_DDL_AUTO=update" >> .env
           echo "JPA_SHOW_SQL=false" >> .env
+          echo "Created .env file in b_worm directory:"
+          cat .env | grep -v "PASSWORD" # Show file without password
 
       - name: Extract metadata for Docker
         id: meta
@@ -104,10 +119,12 @@ jobs:
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
 
+      # Build and push Docker image from the b_worm subfolder
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./b_worm
+          file: ./b_worm/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
