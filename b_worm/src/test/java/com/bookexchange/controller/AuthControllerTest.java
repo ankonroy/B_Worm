@@ -1,41 +1,99 @@
-// package com.bookexchange.controller;
+package com.bookexchange.controller;
 
-// import org.junit.jupiter.api.Test;
-// import org.springframework.beans.factory.annotation.Autowired;
-// import org.springframework.boot.CommandLineRunner;
-// import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-// import org.springframework.boot.test.mock.mockito.MockBean;
-// import org.springframework.security.test.context.support.WithAnonymousUser;
-// import org.springframework.test.web.servlet.MockMvc;
-// import com.bookexchange.service.UserService;
+import com.bookexchange.model.User;
+import com.bookexchange.repository.UserRepository;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
-// import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-// import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-// import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
+import java.time.LocalDate;
 
-// @WebMvcTest(AuthController.class)
-// @MockBean(CommandLineRunner.class)  // Add this line
-// public class AuthControllerTest {
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
-//     @Autowired
-//     private MockMvc mockMvc;
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@Transactional
+class AuthControllerTest {
 
-//     @MockBean
-//     private UserService userService;
+	@Autowired
+	private MockMvc mockMvc;
 
-//     @Test
-//     @WithAnonymousUser
-//     void testLoginPage_ShouldLoad() throws Exception {
-//         mockMvc.perform(get("/auth/login"))
-//                 .andExpect(status().isOk())
-//                 .andExpect(view().name("layouts/main"));
-//     }
+	@Autowired
+	private UserRepository userRepository;
 
-//     @Test
-//     @WithAnonymousUser
-//     void testRegisterPage_ShouldLoad() throws Exception {
-//         mockMvc.perform(get("/auth/register"))
-//                 .andExpect(status().isOk())
-//                 .andExpect(view().name("layouts/main"));
-//     }
-// }
+	@Test
+	@WithAnonymousUser
+	void testLoginPage_ShouldLoad() throws Exception {
+		mockMvc.perform(get("/auth/login"))
+				.andExpect(status().isOk())
+				.andExpect(view().name("auth/login"));
+	}
+
+	@Test
+	@WithAnonymousUser
+	void testRegisterPage_ShouldLoad() throws Exception {
+		mockMvc.perform(get("/auth/register"))
+				.andExpect(status().isOk())
+				.andExpect(view().name("auth/register"))
+				.andExpect(model().attributeExists("registerRequest"));
+	}
+
+	@Test
+	@WithAnonymousUser
+	void testRegister_ShouldRedirectToLogin_WhenValid() throws Exception {
+		userRepository.deleteAll();
+
+		mockMvc.perform(post("/auth/register")
+						.param("username", "newuser")
+						.param("email", "newuser@test.com")
+						.param("password", "password123")
+						.param("firstName", "New")
+						.param("lastName", "User")
+						.param("dateOfBirth", "2000-01-01"))
+				.andExpect(status().is3xxRedirection())
+				.andExpect(redirectedUrl("/auth/login"));
+
+		assertThat(userRepository.findByUsername("newuser")).isPresent();
+	}
+
+	@Test
+	@WithAnonymousUser
+	void testRegister_ShouldReturnRegisterPage_WhenServiceThrows() throws Exception {
+		userRepository.deleteAll();
+		User existing = User.builder()
+				.username("newuser")
+				.email("existing@test.com")
+				.password("pw")
+				.firstName("Existing")
+				.lastName("User")
+				.dateOfBirth(LocalDate.of(1990, 1, 1))
+				.role(com.bookexchange.model.enums.Role.MEMBER)
+				.enabled(true)
+				.build();
+		userRepository.save(existing);
+
+		mockMvc.perform(post("/auth/register")
+						.param("username", "newuser")
+						.param("email", "newuser2@test.com")
+						.param("password", "password123")
+						.param("firstName", "New")
+						.param("lastName", "User")
+						.param("dateOfBirth", "2000-01-01"))
+				.andExpect(status().isOk())
+				.andExpect(view().name("auth/register"))
+				.andExpect(model().attributeExists("error"))
+				.andExpect(model().attributeExists("registerRequest"));
+	}
+}
