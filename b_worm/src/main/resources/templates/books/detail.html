@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${book.title} + ' - Book Exchange'">Book Details</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .badge-lg {
+            font-size: 1rem;
+            padding: 0.5rem 1rem;
+        }
+        .own-book-badge {
+            background-color: #6c5ce7;
+            color: white;
+        }
+        .requester-item {
+            transition: background-color 0.2s;
+        }
+        .requester-item:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <!-- Main Content - Book Details -->
+            <div class="col-md-8">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <!-- Header with title and status -->
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h2 th:text="${book.title}">Book Title</h2>
+                            <div>
+                                <!-- Show "Your Book" badge if it's the current user's book -->
+                                <span th:if="${book.donorId == currentUserId}" class="badge own-book-badge me-2">
+                                    <i class="bi bi-person-check"></i> Your Book
+                                </span>
+                                <span th:switch="${book.status}" class="badge badge-lg">
+                                    <span th:case="'AVAILABLE'" class="badge bg-success" th:text="${book.status}">AVAILABLE</span>
+                                    <span th:case="'REQUESTED'" class="badge bg-warning" th:text="${book.status}">REQUESTED</span>
+                                    <span th:case="'TAKEN'" class="badge bg-info" th:text="${book.status}">TAKEN</span>
+                                    <span th:case="'BANNED'" class="badge bg-danger" th:text="${book.status}">BANNED</span>
+                                    <span th:case="*" class="badge bg-secondary" th:text="${book.status}">UNKNOWN</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Author -->
+                        <p class="fs-5" th:text="${book.author}">Author</p>
+
+                        <!-- ISBN (if available) -->
+                        <p class="text-muted" th:if="${book.isbn}">
+                            <i class="bi bi-barcode"></i> <span th:text="${book.isbn}">ISBN</span>
+                        </p>
+
+                        <!-- Description -->
+                        <p th:text="${book.description}">Description</p>
+
+                        <!-- Condition and Donor info -->
+                        <div class="row mb-3">
+                            <div class="col">
+                                <span class="badge bg-info" th:text="${book.condition}">Condition</span>
+                            </div>
+                            <div class="col text-end">
+                                <small class="text-muted">
+                                    Donated by: <span th:text="${book.donorName}"></span> 
+                                    (<span th:text="${book.donorUsername}"></span>)
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Taker info if book is taken -->
+                        <div th:if="${book.status == 'TAKEN' and book.takerName}" class="alert alert-info">
+                            <i class="bi bi-person-check"></i> 
+                            This book has been taken by <strong th:text="${book.takerName}"></strong> 
+                            (<span th:text="${book.takerUsername}"></span>)
+                        </div>
+                        
+                        <!-- ============ CONDITION 1: User is not logged in ============ -->
+                        <div th:if="${currentUserId == null}" class="mt-4">
+                            <div class="alert alert-warning">
+                                <i class="bi bi-info-circle"></i> 
+                                <a href="/auth/login" class="alert-link">Login</a> to request this book.
+                            </div>
+                        </div>
+                        
+                        <!-- ============ CONDITION 2: User is the DONOR (own book) ============ -->
+                        <div th:if="${currentUserId != null and book.donorId == currentUserId}" class="mt-4">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> This is your own book. You cannot request it.
+                                <span th:if="${book.status == 'REQUESTED' and book.pendingRequestCount > 0}" class="d-block mt-2">
+                                    <strong><span th:text="${book.pendingRequestCount}"></span> pending request(s)</strong> from other users.
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- ============ CONDITION 3: User has ALREADY REQUESTED this book ============ -->
+                        <div th:if="${currentUserId != null and book.requestedByCurrentUser}" class="mt-4">
+                            <div th:switch="${book.currentUserRequestStatus}" class="alert">
+                                <div th:case="'PENDING'" class="alert alert-warning d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <i class="bi bi-clock-history"></i> Your request is pending approval
+                                    </span>
+                                    <form th:action="@{'/books/' + ${book.bookId} + '/cancel-request'}" method="post" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-outline-warning">
+                                            <i class="bi bi-x-circle"></i> Cancel Request
+                                        </button>
+                                    </form>
+                                </div>
+                                <div th:case="'APPROVED'" class="alert alert-success">
+                                    <i class="bi bi-check-circle-fill"></i> Your request has been approved! You can now collect the book.
+                                </div>
+                                <div th:case="'REJECTED'" class="alert alert-danger">
+                                    <i class="bi bi-x-circle-fill"></i> Your request was rejected.
+                                </div>
+                                <div th:case="'CANCELLED'" class="alert alert-secondary">
+                                    <i class="bi bi-info-circle"></i> Your request was cancelled.
+                                </div>
+                                <div th:case="*" class="alert alert-secondary">
+                                    <i class="bi bi-info-circle"></i> Request status: <span th:text="${book.currentUserRequestStatus}">Unknown</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- ============ CONDITION 4: User CAN REQUEST this book ============ -->
+                        <!-- Book can be requested if: 
+                             1. User is logged in
+                             2. User is NOT the donor
+                             3. User has NOT already requested
+                             4. Book is NOT TAKEN
+                             5. Book is NOT BANNED
+                        -->
+                        <div th:if="${currentUserId != null 
+                                    and book.donorId != currentUserId 
+                                    and !book.requestedByCurrentUser 
+                                    and book.status != 'TAKEN' 
+                                    and book.status != 'BANNED'}" 
+                             class="mt-4">
+                            
+                            <!-- Different messages based on status -->
+                            <div th:if="${book.status == 'AVAILABLE'}" class="mb-2">
+                                <div class="alert alert-success">
+                                    <i class="bi bi-check-circle"></i> This book is available for request.
+                                </div>
+                            </div>
+                            <div th:if="${book.status == 'REQUESTED'}" class="mb-2">
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-info-circle"></i> This book has been requested by others, but you can still request it. The donor will choose one requester to approve.
+                                </div>
+                            </div>
+                            
+                            <!-- Request button -->
+                            <form th:action="@{'/books/' + ${book.bookId} + '/request'}" method="post">
+                                <button type="submit" class="btn btn-success btn-lg w-100">
+                                    <i class="bi bi-hand-thumbs-up"></i> Request Book
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- ============ CONDITION 5: Book is TAKEN or BANNED ============ -->
+                        <div th:if="${book.status == 'TAKEN' or book.status == 'BANNED'}" class="mt-4">
+                            <div class="alert alert-secondary">
+                                <i class="bi bi-info-circle"></i> This book is <strong th:text="${book.status}"></strong> and cannot be requested.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sidebar -->
+            <div class="col-md-4">
+                <!-- Request Management Card - Only visible to donor -->
+                <div th:if="${book.donorId == currentUserId}" class="card shadow mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-people"></i> Manage Requests 
+                            <span class="badge bg-light text-primary" th:text="${book.requestCount}">0</span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Request Stats -->
+                        <div class="text-center mb-3">
+                            <div class="row">
+                                <div class="col-6">
+                                    <h4 th:text="${book.requestCount}">0</h4>
+                                    <small class="text-muted">Total</small>
+                                </div>
+                                <div class="col-6">
+                                    <h4 th:text="${book.pendingRequestCount}">0</h4>
+                                    <small class="text-muted">Pending</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Link to manage requests page -->
+                        <a href="/books/requests/received" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-inbox"></i> View All Requests
+                        </a>
+                        
+                        <!-- Quick info about multiple requests -->
+                        <small class="text-muted d-block mt-2 text-center">
+                            <i class="bi bi-info-circle"></i>
+                            <span th:if="${book.requestCount > 0}">
+                                <span th:text="${book.requestCount}"></span> user(s) have requested this book
+                            </span>
+                            <span th:if="${book.requestCount == 0}">
+                                No requests yet
+                            </span>
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Request info card (for non-donors) -->
+                <div th:if="${book.donorId != currentUserId}" class="card shadow mb-3">
+                    <div class="card-header">
+                        <h5>
+                            <i class="bi bi-people"></i> Request Info
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1">
+                            <strong>Total requests:</strong> <span th:text="${book.requestCount}">0</span>
+                        </p>
+                        <p class="mb-1">
+                            <strong>Pending:</strong> <span th:text="${book.pendingRequestCount}">0</span>
+                        </p>
+                        <hr>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i> 
+                            <span th:if="${book.requestCount == 0}">No requests yet. Be the first!</span>
+                            <span th:if="${book.requestCount > 0 and book.requestedByCurrentUser}">You have already requested this book</span>
+                            <span th:if="${book.requestCount > 0 and !book.requestedByCurrentUser}"><span th:text="${book.requestCount}"></span> people have requested this book</span>
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Donor info card (for non-donors) -->
+                <div th:if="${book.donorId != currentUserId}" class="card shadow mb-3">
+                    <div class="card-header">
+                        <h5><i class="bi bi-person"></i> Donor Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1"><strong>Name:</strong> <span th:text="${book.donorName}">Donor Name</span></p>
+                        <p class="mb-0"><strong>Username:</strong> <span th:text="${book.donorUsername}">@username</span></p>
+                    </div>
+                </div>
+
+                <!-- Admin actions card -->
+                <div th:if="${#authorization.expression('hasRole(''ADMIN'')')}" class="card shadow">
+                    <div class="card-header bg-danger text-white">
+                        <h5><i class="bi bi-shield-lock"></i> Admin Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${!book.banned}">
+                            <form th:action="@{'/admin/books/' + ${book.bookId} + '/ban'}" method="post">
+                                <button type="submit" class="btn btn-outline-danger w-100">
+                                    <i class="bi bi-ban"></i> Ban Book
+                                </button>
+                            </form>
+                        </div>
+                        <div th:if="${book.banned}">
+                            <form th:action="@{'/admin/books/' + ${book.bookId} + '/unban'}" method="post">
+                                <button type="submit" class="btn btn-outline-success w-100">
+                                    <i class="bi bi-check-circle"></i> Unban Book
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Back to books button -->
+                <div class="mt-3 text-center">
+                    <a href="/books" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Books
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
