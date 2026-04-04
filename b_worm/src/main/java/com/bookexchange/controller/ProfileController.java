@@ -2,9 +2,9 @@ package com.bookexchange.controller;
 
 import com.bookexchange.dto.request.RegisterRequest;
 import com.bookexchange.dto.response.UserResponse;
+import com.bookexchange.exception.BadRequestException;
 import com.bookexchange.model.User;
 import com.bookexchange.service.UserService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -75,12 +75,12 @@ public class ProfileController {
     }
 
     @PostMapping("/profile/update")
-    public String updateProfile(@Valid @ModelAttribute RegisterRequest request) {
+    public String updateProfile(@ModelAttribute RegisterRequest request) {
         User currentUser = getCurrentUser();
         if (currentUser == null) {
             return "redirect:/auth/login";
         }
-        
+
         userService.updateProfile(currentUser.getUserId(), request);
         return "redirect:/profile";
     }
@@ -104,12 +104,16 @@ public class ProfileController {
         if (currentUser == null) {
             return "redirect:/auth/login";
         }
-        
+
         if (!newPassword.equals(confirmPassword)) {
             return "redirect:/profile/change-password?error=password_mismatch";
         }
-        
-        userService.changePassword(currentUser.getUserId(), oldPassword, newPassword);
-        return "redirect:/profile?success=password_changed";
+
+        try {
+            userService.changePassword(currentUser.getUserId(), oldPassword, newPassword);
+            return "redirect:/profile?success=password_changed";
+        } catch (BadRequestException ex) {
+            return "redirect:/profile/change-password?error=old_password_incorrect";
+        }
     }
 }
